@@ -6,9 +6,9 @@
   <title>Snoopy AR</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; touch-action: none; }
     #cam    { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-    #canvas { position: fixed; inset: 0; width: 100%; height: 100%; }
+    #canvas { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; }
 
     #splash {
       position: fixed; inset: 0; z-index: 10; background: #0a0a1a;
@@ -22,10 +22,9 @@
       color: #fff; border: none; border-radius: 40px;
       font-size: 18px; font-weight: 700; cursor: pointer; font-family: -apple-system, sans-serif;
     }
-
     #hint {
       position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,0.55); backdrop-filter: blur(8px);
+      background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
       color: #fff; font-family: -apple-system, sans-serif; font-size: 14px;
       padding: 10px 22px; border-radius: 24px; z-index: 5; pointer-events: none;
       transition: opacity 0.4s;
@@ -43,7 +42,6 @@
     <button id="start-btn">Start AR</button>
   </div>
 
-  <!-- jsQR for QR detection -->
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 
   <script type="importmap">
@@ -60,7 +58,7 @@
     document.getElementById('start-btn').addEventListener('click', async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          video: { facingMode: { ideal: 'environment' } },
           audio: false
         });
         document.getElementById('cam').srcObject = stream;
@@ -74,11 +72,11 @@
     });
 
     function initAR() {
-      const canvas = document.getElementById('canvas');
-      const video  = document.getElementById('cam');
-      const hint   = document.getElementById('hint');
+      const canvas  = document.getElementById('canvas');
+      const video   = document.getElementById('cam');
+      const hint    = document.getElementById('hint');
 
-      // Three.js setup
+      // ── Three.js ──────────────────────────────────────────────
       const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
       renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
       renderer.setSize(innerWidth, innerHeight);
@@ -88,27 +86,24 @@
       renderer.outputColorSpace = THREE.SRGBColorSpace;
 
       const scene  = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.01, 1000);
+      const cam3   = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.01, 1000);
 
       scene.add(new THREE.AmbientLight(0xffffff, 2.5));
       const key = new THREE.DirectionalLight(0xffffff, 3);
-      key.position.set(2, 4, 3);
-      scene.add(key);
+      key.position.set(2, 4, 3); scene.add(key);
       const fill = new THREE.DirectionalLight(0xffffff, 1.5);
-      fill.position.set(-2, 1, -2);
-      scene.add(fill);
+      fill.position.set(-2, 1, -2); scene.add(fill);
 
-      // Model container for rotation
       const pivot = new THREE.Group();
+      pivot.position.set(0, 0, -1.5);
       pivot.visible = false;
       scene.add(pivot);
 
       let mixer = null;
-      let modelReady = false;
+      let model = null;
 
-      const loader = new GLTFLoader();
-      loader.load('snoopy.glb', (gltf) => {
-        const model = gltf.scene;
+      new GLTFLoader().load('snoopy.glb', (gltf) => {
+        model = gltf.scene;
         const box = new THREE.Box3().setFromObject(model);
         const size = box.getSize(new THREE.Vector3());
         const sc = 0.5 / Math.max(size.x, size.y, size.z);
@@ -116,90 +111,84 @@
         const center = box.getCenter(new THREE.Vector3());
         model.position.set(-center.x * sc, -center.y * sc - 0.2, 0);
         pivot.add(model);
-        pivot.position.set(0, 0, -1.5);
-
         mixer = new THREE.AnimationMixer(model);
-        gltf.animations.forEach(clip => mixer.clipAction(clip).play());
-        modelReady = true;
+        gltf.animations.forEach(c => mixer.clipAction(c).play());
       });
 
-      // QR detection via offscreen canvas
+      // ── QR scanning (every 200 ms) ────────────────────────────
       const qrCanvas = document.createElement('canvas');
-      const qrCtx = qrCanvas.getContext('2d', { willReadFrequently: true });
-      let qrVisible = false;
-      let lastQRTime = 0;
-      const QR_TIMEOUT = 800; // ms before hiding Snoopy after QR leaves frame
+      const qrCtx    = qrCanvas.getContext('2d', { willReadFrequently: true });
+      let qrVisible  = false;
+      let lastSeen   = 0;
 
-      function scanQR() {
-        if (video.readyState === video.HAVE_ENOUGH_DATA) {
-          qrCanvas.width  = video.videoWidth  / 4; // scan at 1/4 res for speed
-          qrCanvas.height = video.videoHeight / 4;
-          qrCtx.drawImage(video, 0, 0, qrCanvas.width, qrCanvas.height);
-          const imgData = qrCtx.getImageData(0, 0, qrCanvas.width, qrCanvas.height);
-          const code = jsQR(imgData.data, imgData.width, imgData.height);
-          if (code) {
-            lastQRTime = Date.now();
-            if (!qrVisible && modelReady) {
-              qrVisible = true;
-              pivot.visible = true;
-              hint.style.opacity = '0';
-            }
-          } else if (qrVisible && Date.now() - lastQRTime > QR_TIMEOUT) {
-            qrVisible = false;
-            pivot.visible = false;
-            hint.style.opacity = '1';
+      setInterval(() => {
+        if (video.readyState < video.HAVE_ENOUGH_DATA) return;
+        const W = Math.floor(video.videoWidth  / 2);
+        const H = Math.floor(video.videoHeight / 2);
+        if (!W || !H) return;
+        qrCanvas.width = W; qrCanvas.height = H;
+        qrCtx.drawImage(video, 0, 0, W, H);
+        const img  = qrCtx.getImageData(0, 0, W, H);
+        const code = jsQR(img.data, W, H);
+        if (code) {
+          lastSeen = Date.now();
+          if (!qrVisible && model) {
+            qrVisible = true;
+            pivot.visible = true;
+            hint.style.opacity = '0';
           }
+        } else if (qrVisible && Date.now() - lastSeen > 800) {
+          qrVisible = false;
+          pivot.visible = false;
+          hint.style.opacity = '1';
         }
-      }
+      }, 200);
 
-      // Touch rotation — left/right only
-      let touchStartX = 0;
+      // ── Touch rotation (Y axis only) ──────────────────────────
       let rotY = 0;
-      canvas.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+      let lastTouchX = null;
+
+      canvas.addEventListener('touchstart', e => {
+        e.preventDefault();
+        lastTouchX = e.touches[0].clientX;
+      }, { passive: false });
+
       canvas.addEventListener('touchmove', e => {
-        const dx = e.touches[0].clientX - touchStartX;
-        touchStartX = e.touches[0].clientX;
-        rotY += dx * 0.01;
-      }, { passive: true });
+        e.preventDefault();
+        const x = e.touches[0].clientX;
+        rotY += (x - lastTouchX) * 0.012;
+        lastTouchX = x;
+      }, { passive: false });
 
-      // Mouse drag too (for desktop testing)
-      let dragging = false, mouseX = 0;
-      canvas.addEventListener('mousedown', e => { dragging = true; mouseX = e.clientX; });
-      canvas.addEventListener('mousemove', e => {
-        if (!dragging) return;
-        rotY += (e.clientX - mouseX) * 0.01;
-        mouseX = e.clientX;
+      canvas.addEventListener('touchend', () => { lastTouchX = null; }, { passive: true });
+
+      // Mouse fallback for desktop
+      let mouseDown = false, lastMouseX = 0;
+      canvas.addEventListener('mousedown', e => { mouseDown = true; lastMouseX = e.clientX; });
+      window.addEventListener('mousemove', e => {
+        if (!mouseDown) return;
+        rotY += (e.clientX - lastMouseX) * 0.012;
+        lastMouseX = e.clientX;
       });
-      canvas.addEventListener('mouseup', () => dragging = false);
+      window.addEventListener('mouseup', () => mouseDown = false);
 
-      // Animate
+      // ── Render loop ───────────────────────────────────────────
       const clock = new THREE.Clock();
       let t = 0;
-      let baseY = -0.2;
 
       renderer.setAnimationLoop(() => {
         const delta = clock.getDelta();
-        if (mixer) mixer.update(delta);
         t += delta;
-
-        // Apply rotation from drag
+        if (mixer) mixer.update(delta);
         pivot.rotation.y = rotY;
-
-        // Gentle bob
-        if (pivot.children[0]) {
-          pivot.children[0].position.y = baseY + Math.sin(t * 1.5) * 0.04;
-        }
-
-        // Scan QR every ~100ms
-        if (Math.round(t * 10) % 1 === 0) scanQR();
-
-        renderer.render(scene, camera);
+        if (model) model.position.y = -0.2 + Math.sin(t * 1.5) * 0.04;
+        renderer.render(scene, cam3);
       });
 
       window.addEventListener('resize', () => {
         renderer.setSize(innerWidth, innerHeight);
-        camera.aspect = innerWidth / innerHeight;
-        camera.updateProjectionMatrix();
+        cam3.aspect = innerWidth / innerHeight;
+        cam3.updateProjectionMatrix();
       });
     }
   </script>
