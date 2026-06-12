@@ -12,87 +12,75 @@
       background: rgba(0,0,0,0.75); color: #fff;
       font-family: -apple-system, sans-serif; font-size: 14px;
       padding: 8px 18px; border-radius: 20px; z-index: 100;
-      white-space: nowrap; max-width: 90vw; text-align: center;
+      max-width: 90vw; text-align: center;
     }
   </style>
 </head>
 <body>
-  <div id="status">⏳ Loading scripts…</div>
+  <div id="status">⏳ Loading…</div>
 
   <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/GLTFLoader.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"></script>
 
-  <script>
+  <script type="module">
+    import { MindARThree } from 'https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js';
+
     const status = document.getElementById('status');
-    function setStatus(msg) { status.textContent = msg; console.log('[AR]', msg); }
+    const s = msg => { status.textContent = msg; console.log(msg); };
 
-    setStatus('⏳ Scripts loaded, starting AR…');
+    try {
+      s('⏳ Building scene…');
 
-    async function startAR() {
-      try {
-        const { MindARThree } = window.MINDAR.IMAGE;
+      const mindarThree = new MindARThree({
+        container: document.body,
+        imageTargetSrc: 'targets.mind',
+        uiLoading: 'no',
+        uiScanning: 'no',
+        uiError: 'no',
+      });
 
-        setStatus('⏳ Building scene…');
-        const mindarThree = new MindARThree({
-          container: document.body,
-          imageTargetSrc: 'targets.mind',
-          uiLoading: 'no',
-          uiScanning: 'no',
-          uiError: 'no',
-        });
+      const { renderer, scene, camera } = mindarThree;
 
-        const { renderer, scene, camera } = mindarThree;
+      scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+      const dir = new THREE.DirectionalLight(0xffffff, 1.5);
+      dir.position.set(1, 2, 1);
+      scene.add(dir);
 
-        scene.add(new THREE.AmbientLight(0xffffff, 1.5));
-        const dir = new THREE.DirectionalLight(0xffffff, 1.5);
-        dir.position.set(1, 2, 1);
-        scene.add(dir);
+      const anchor = mindarThree.addAnchor(0);
 
-        const anchor = mindarThree.addAnchor(0);
+      s('⏳ Loading Snoopy…');
+      const loader = new THREE.GLTFLoader();
+      const gltf = await new Promise((res, rej) =>
+        loader.load('source/My%20Snoopy%20Model.glb', res, undefined, rej)
+      );
 
-        setStatus('⏳ Loading Snoopy model…');
-        const loader = new THREE.GLTFLoader();
-        const gltf = await new Promise((res, rej) => {
-          loader.load('source/My%20Snoopy%20Model.glb', res, undefined, rej);
-        });
+      const model = gltf.scene;
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const sc = 0.8 / Math.max(size.x, size.y, size.z);
+      model.scale.setScalar(sc);
+      const center = box.getCenter(new THREE.Vector3());
+      model.position.set(-center.x * sc, -center.y * sc + 0.1, -center.z * sc);
 
-        const model = gltf.scene;
-        const box = new THREE.Box3().setFromObject(model);
-        const size = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const scale = 0.8 / maxDim;
-        model.scale.setScalar(scale);
-        const center = box.getCenter(new THREE.Vector3());
-        model.position.set(
-          -center.x * scale,
-          -center.y * scale + 0.1,
-          -center.z * scale
-        );
+      anchor.group.add(model);
+      anchor.onTargetFound = () => s('🐶 Snoopy found!');
+      anchor.onTargetLost  = () => s('📷 Point at the QR code');
 
-        anchor.group.add(model);
+      let t = 0;
+      renderer.setAnimationLoop(() => {
+        t += 0.02;
+        model.position.y = -center.y * sc + 0.1 + Math.sin(t) * 0.03;
+        renderer.render(scene, camera);
+      });
 
-        anchor.onTargetFound = () => { setStatus('🐶 Snoopy found!'); };
-        anchor.onTargetLost  = () => { setStatus('📷 Point at the QR code'); };
+      s('📷 Starting camera…');
+      await mindarThree.start();
+      s('📷 Point at the Snoopy QR code');
 
-        let t = 0;
-        renderer.setAnimationLoop(() => {
-          t += 0.02;
-          model.position.y = -center.y * scale + 0.1 + Math.sin(t) * 0.03;
-          renderer.render(scene, camera);
-        });
-
-        setStatus('📷 Starting camera…');
-        await mindarThree.start();
-        setStatus('📷 Point at the Snoopy QR code');
-
-      } catch (err) {
-        setStatus('❌ ' + err.message);
-        console.error(err);
-      }
+    } catch (err) {
+      s('❌ ' + err.message);
+      console.error(err);
     }
-
-    window.addEventListener('load', startAR);
   </script>
 </body>
 </html>
