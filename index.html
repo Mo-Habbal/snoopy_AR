@@ -11,94 +11,55 @@
     #canvas { position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; }
 
     /* ── Splash ── */
+    @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;900&family=Nunito:wght@600;700&display=swap');
+
     #splash {
       position: fixed; inset: 0; z-index: 10;
-      background: linear-gradient(160deg, #87CEEB 0%, #55B8E8 40%, #2E86C1 100%);
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 0;
-      font-family: -apple-system, sans-serif;
-      overflow: hidden;
-    }
-
-    /* Grass strip at bottom */
-    #splash::after {
-      content: '';
-      position: absolute; bottom: 0; left: 0; right: 0;
-      height: 22%;
-      background: linear-gradient(180deg, #5DBB63 0%, #3E9944 100%);
-      border-radius: 60% 60% 0 0 / 30px 30px 0 0;
-    }
-
-    /* Clouds */
-    .cloud {
-      position: absolute;
       background: #fff;
-      border-radius: 50px;
-      opacity: 0.85;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 20px;
     }
-    .cloud::before, .cloud::after {
-      content: ''; position: absolute;
-      background: #fff; border-radius: 50%;
-    }
-    .c1 { width: 90px; height: 28px; top: 12%; left: 8%; }
-    .c1::before { width: 44px; height: 44px; top: -22px; left: 12px; }
-    .c1::after  { width: 32px; height: 32px; top: -14px; left: 38px; }
 
-    .c2 { width: 70px; height: 22px; top: 22%; right: 10%; }
-    .c2::before { width: 34px; height: 34px; top: -18px; left: 10px; }
-    .c2::after  { width: 26px; height: 26px; top: -11px; left: 30px; }
-
-    /* Content above grass */
     #splash-content {
-      position: relative; z-index: 1;
       display: flex; flex-direction: column;
       align-items: center; gap: 20px;
-      margin-bottom: 18%;
-    }
-
-    .paw { font-size: 64px; animation: bounce 1.6s ease-in-out infinite; }
-    @keyframes bounce {
-      0%,100% { transform: translateY(0); }
-      50%      { transform: translateY(-14px); }
     }
 
     #splash h1 {
-      color: #fff;
-      font-size: 36px; font-weight: 900;
-      letter-spacing: -0.5px;
-      text-shadow: 0 2px 0 rgba(0,0,0,0.15);
+      font-family: 'Baloo 2', cursive;
+      font-size: 52px; font-weight: 900;
+      color: #1a1a1a;
+      letter-spacing: -1px;
+      line-height: 1;
     }
-    /* Red Peanuts-style underline accent */
-    #splash h1 span {
-      position: relative;
-    }
-    #splash h1 span::after {
-      content: '';
-      position: absolute; bottom: -4px; left: 0; right: 0;
-      height: 4px; border-radius: 2px;
-      background: #E8382D;
+    #splash h1 em {
+      font-style: normal;
+      color: #E8382D;
     }
 
     #splash p {
-      color: rgba(255,255,255,0.92);
-      font-size: 16px; text-align: center;
-      max-width: 240px; line-height: 1.65;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.15);
+      font-family: 'Nunito', sans-serif;
+      font-size: 16px; font-weight: 600;
+      color: #555;
+      text-align: center;
+      max-width: 240px; line-height: 1.6;
     }
 
     #start-btn {
-      padding: 15px 52px;
-      background: #E8382D;
-      color: #fff; border: none; border-radius: 40px;
-      font-size: 18px; font-weight: 800; cursor: pointer;
-      font-family: -apple-system, sans-serif;
-      box-shadow: 0 4px 0 #a3221a, 0 6px 16px rgba(232,56,45,0.4);
-      letter-spacing: 0.02em;
+      font-family: 'Baloo 2', cursive;
+      font-size: 20px; font-weight: 700;
+      padding: 14px 52px;
+      background: #1a1a1a;
+      color: #fff;
+      border: none; border-radius: 40px;
+      cursor: pointer;
+      box-shadow: 0 4px 0 #E8382D;
       transition: transform 0.1s, box-shadow 0.1s;
+      letter-spacing: 0.02em;
     }
     #start-btn:active {
       transform: translateY(3px);
-      box-shadow: 0 1px 0 #a3221a, 0 2px 8px rgba(232,56,45,0.3);
+      box-shadow: 0 1px 0 #E8382D;
     }
 
     /* ── AR hint pill ── */
@@ -117,11 +78,8 @@
   <div id="hint" style="display:none">Point at the QR code</div>
 
   <div id="splash">
-    <div class="cloud c1"></div>
-    <div class="cloud c2"></div>
     <div id="splash-content">
-      <div class="paw">🐾</div>
-      <h1><span>Snoopy AR</span></h1>
+      <h1>Snoopy <em>AR</em></h1>
       <p>Point your camera at the QR code to see Snoopy.</p>
       <button id="start-btn">Start</button>
     </div>
